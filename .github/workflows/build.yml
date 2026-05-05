@@ -42,7 +42,7 @@ jobs:
 
       - name: Setup Node.js
         if: steps.detect.outputs.needs_node == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ steps.detect.outputs.node_version }}
 
