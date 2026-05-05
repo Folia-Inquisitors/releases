@@ -10,6 +10,19 @@ Automated build and release management system for GitHub projects. This system b
 4.  **Persistent History**: Build metadata and artifacts are stored in the `gh-pages` branch, ensuring a full history is maintained.
 5.  **Release Website**: A clean, static dashboard (`index.html`) lazy-loads the build history and provides direct download links.
 
+## Getting Started (Use this for your own projects)
+
+If you want to use this system for your own project releases:
+
+1.  **Fork this repository**.
+2.  **Update `config.json`**: Set your GitHub organization/user and repository name.
+3.  **Configure Projects**: Delete the example files in `projects/` and add your own JSON configurations.
+4.  **Enable GitHub Pages**:
+    *   Go to your repository **Settings** > **Pages**.
+    *   Set the source to **Deploy from a branch**.
+    *   Select the `gh-pages` branch (it will be created automatically after the first successful Action run).
+5.  **Trigger the first build**: Go to **Actions**, select **Build Project Releases**, and click **Run workflow**.
+
 ## Adding a New Project
 
 To add a new project to the build pipeline, create a new JSON file in the `projects/` directory:
