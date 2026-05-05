@@ -151,8 +151,10 @@ def main() -> None:
     for subdir in ("artifacts", "builds"):
         src = ghpages_dir / subdir
         if src.is_dir():
-            log(f"Restoring existing {subdir} from gh-pages...")
+            log(f"Restoring {subdir} from gh-pages history...")
             shutil.copytree(src, staging_dir / subdir, dirs_exist_ok=True)
+        else:
+            log(f"No existing {subdir} found in history.")
 
     # Build each project
     for config_path in sorted((root_dir / "projects").glob("*.json")):
@@ -208,11 +210,17 @@ def main() -> None:
         commit_date = head.authored_datetime.isoformat()
         log(f"  Commit: {commit_short} — {commit_message}")
 
-        # Skip if already built
+        # Skip if already built AND artifact exists
         existing = load_project_builds(builds_file)
-        if existing and commit_hash in {b.commit_hash for b in existing.builds}:
-            log(f"  ⏭ Already built {commit_short}, skipping.")
-            continue
+        if existing:
+            build_entry = next((b for b in existing.builds if b.commit_hash == commit_hash), None)
+            if build_entry and build_entry.build_status == "success":
+                artifact_file = staging_dir / build_entry.artifact_path
+                if artifact_file.is_file():
+                    log(f"  ⏭ Already built {commit_short} and artifact exists, skipping.")
+                    continue
+                else:
+                    log(f"  ⚠ Already built {commit_short} but artifact is missing, rebuilding...")
 
         # Build
         log(f"  Running: {config.build_command}")
@@ -235,8 +243,14 @@ def main() -> None:
                 artifact_path = f"artifacts/{project_id}/{commit_hash}/{artifact_name}"
                 dest = staging_dir / "artifacts" / project_id / commit_hash
                 dest.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src, dest / artifact_name)
-                log(f"  Artifact: {artifact_name}")
+                artifact_dest = dest / artifact_name
+                shutil.copy2(src, artifact_dest)
+                
+                if artifact_dest.is_file():
+                    log(f"  ✓ Artifact collected: {artifact_name}")
+                else:
+                    err(f"Failed to copy artifact to {artifact_dest}")
+                    build_status = "failed"
 
         # Record build
         data = existing or ProjectBuilds(
