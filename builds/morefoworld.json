@@ -5,6 +5,15 @@
   "archived": false,
   "builds": [
     {
+      "commit_hash": "97d0bdf2b5c7e7aafe1a957f396e326387c93b69",
+      "commit_message": "use folia-inquisitors dev-bundle",
+      "commit_date": "2026-05-05T12:25:26+07:00",
+      "artifact_name": "MoreFoWorld-1.14.1-all.jar",
+      "artifact_path": "artifacts/morefoworld/97d0bdf2b5c7e7aafe1a957f396e326387c93b69/MoreFoWorld-1.14.1-all.jar",
+      "build_status": "success",
+      "build_date": "2026-05-05T05:46:36Z"
+    },
+    {
       "commit_hash": "0d3d2ccef5cac2b9ae5b37abf4b324bd5e765a60",
       "commit_message": "update WorldUtil code for new version",
       "commit_date": "2026-05-05T11:29:17+07:00",
