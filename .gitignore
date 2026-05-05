@@ -2,6 +2,8 @@
 staging/
 .work/
 gh-pages-existing/
+.work_dir/
+.cache/
 
 # Python
 __pycache__/
@@ -9,6 +11,7 @@ __pycache__/
 *$py.class
 .venv/
 .uv/
+.python-version
 
 # IDEs
 .idea/

@@ -4,33 +4,26 @@
 # dependencies = [
 #     "gitpython",
 #     "pydantic",
+#     "docker",
 # ]
 # ///
 """
 build.py — Build orchestration script for project releases.
-
-Reads project configs from projects/*.json, clones and builds each one,
-collects artifacts, and produces a staging directory for gh-pages deployment.
+Builds projects in isolated Docker containers and manages artifact lifecycle.
 """
 
 from __future__ import annotations
-
-import glob
 import os
 import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-
+import docker
 from git import Repo
 from pydantic import BaseModel, Field
 
-
-# ---------------------------------------------------------------------------
-# Models
-# ---------------------------------------------------------------------------
-
+# --- Models ---
 
 class ProjectConfig(BaseModel):
     name: str
@@ -43,7 +36,6 @@ class ProjectConfig(BaseModel):
     node_version: str = "20"
     archived: bool = False
 
-
 class BuildEntry(BaseModel):
     commit_hash: str = ""
     commit_message: str = ""
@@ -53,7 +45,6 @@ class BuildEntry(BaseModel):
     build_status: str = "success"
     build_date: str = ""
 
-
 class ProjectBuilds(BaseModel):
     id: str
     name: str
@@ -61,228 +52,250 @@ class ProjectBuilds(BaseModel):
     archived: bool = False
     builds: list[BuildEntry] = Field(default_factory=list)
 
-
 class ProjectEntry(BaseModel):
     id: str
     name: str
     repository: str
     archived: bool = False
 
-
 class ProjectsIndex(BaseModel):
     last_updated: str
     projects: list[ProjectEntry]
 
+# --- Helpers ---
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+def log(msg: str):
+    print(f"[info] {msg}", flush=True)
 
+def err(msg: str):
+    print(f"[error] {msg}", file=sys.stderr, flush=True)
 
-def log(msg: str) -> None:
-    print(f"[build] {msg}", flush=True)
-
-
-def err(msg: str) -> None:
-    print(f"[build] ERROR: {msg}", file=sys.stderr, flush=True)
-
-
-def now_iso() -> str:
+def now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-
-def save_model(path: Path, data: BaseModel) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(data.model_dump_json(indent=2))
-
-
-def load_project_builds(path: Path) -> ProjectBuilds | None:
-    if not path.exists():
-        return None
-    return ProjectBuilds.model_validate_json(path.read_text())
-
-
-def resolve_repository(repo: str) -> str:
-    """Expand short-form 'owner/repo' into a full GitHub URL."""
-    if not repo.startswith(("https://", "http://", "git@")):
+def resolve_repo(repo: str) -> str:
+    if not repo.startswith(("http", "git@")):
         return f"https://github.com/{repo}"
     return repo
 
+def get_docker_image(config: ProjectConfig) -> str:
+    s = config.setup.lower()
+    if s == "java":
+        return f"maven:3-eclipse-temurin-{config.java_version}"
+    if s == "node":
+        return f"node:{config.node_version}"
+    return "ubuntu:22.04"
 
-def setup_git_auth() -> None:
-    """Configure git to use GITHUB_TOKEN for all GitHub HTTPS requests."""
-    token = os.environ.get("GITHUB_TOKEN")
-    if not token:
-        return
-    subprocess.run(
-        [
-            "git",
-            "config",
-            "--global",
-            "url.https://x-access-token:{}@github.com/.insteadOf".format(token),
-            "https://github.com/",
-        ],
-        check=True,
-    )
+# --- Main Orchestrator ---
 
+class Orchestrator:
+    def __init__(self, root: Path, docker_client: docker.DockerClient):
+        self.root = root
+        self.staging = root / "staging"
+        self.work = root / ".work"
+        self.cache = root / ".cache"
+        self.history = root / "gh-pages-existing"
+        self.docker = docker_client
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
+    def setup(self):
+        for p in [self.staging, self.work]:
+            shutil.rmtree(p, ignore_errors=True)
+        
+        target_dirs = [
+            self.staging / "artifacts",
+            self.staging / "builds",
+            self.work,
+            self.cache
+        ]
+        for p in target_dirs:
+            p.mkdir(parents=True, exist_ok=True)
+        
+        for d in ["artifacts", "builds"]:
+            src = self.history / d
+            if src.is_dir():
+                log(f"Restoring {d} history...")
+                shutil.copytree(src, self.staging / d, dirs_exist_ok=True)
+        
+        idx = self.root / "index.html"
+        if idx.exists():
+            shutil.copy2(idx, self.staging)
 
-
-def main() -> None:
-    setup_git_auth()
-    root_dir = Path(__file__).resolve().parent.parent
-    staging_dir = root_dir / "staging"
-    work_dir = root_dir / ".work"
-    ghpages_dir = root_dir / "gh-pages-existing"
-
-    # Clean and prepare
-    shutil.rmtree(staging_dir, ignore_errors=True)
-    shutil.rmtree(work_dir, ignore_errors=True)
-    for d in (staging_dir / "artifacts", staging_dir / "builds", work_dir):
-        d.mkdir(parents=True, exist_ok=True)
-
-    # Copy static files to staging
-    shutil.copy2(root_dir / "index.html", staging_dir)
-
-    # Restore existing data from gh-pages
-    for subdir in ("artifacts", "builds"):
-        src = ghpages_dir / subdir
-        if src.is_dir():
-            log(f"Restoring {subdir} from gh-pages history...")
-            shutil.copytree(src, staging_dir / subdir, dirs_exist_ok=True)
+    def run_build(self, pid: str, config: ProjectConfig):
+        repo_url = resolve_repo(config.repository)
+        data_path = self.staging / "builds" / f"{pid}.json"
+        
+        if data_path.exists():
+            data = ProjectBuilds.model_validate_json(data_path.read_text())
         else:
-            log(f"No existing {subdir} found in history.")
+            data = ProjectBuilds(id=pid, name=config.name, repository=repo_url)
 
-    # Build each project
-    for config_path in sorted((root_dir / "projects").glob("*.json")):
-        project_id = config_path.stem
-        config = ProjectConfig.model_validate_json(config_path.read_text())
-        config.repository = resolve_repository(config.repository)
-        builds_file = staging_dir / "builds" / f"{project_id}.json"
-        build_date = now_iso()
+        print(f"\n--- Project: {config.name} [{pid}] ---")
+        log(f"Repo: {repo_url} ({config.branch})")
 
-        log("━" * 40)
-        log(f"Building: {config.name} ({project_id})")
-        log(f"  Repo:   {config.repository}")
-        log(f"  Branch: {config.branch}")
         if config.archived:
-            log("  ⚠ Archived — skipping build")
-        log("━" * 40)
-
-        # Archived projects: update flag only, skip build
-        if config.archived:
-            data = load_project_builds(builds_file) or ProjectBuilds(
-                id=project_id, name=config.name, repository=config.repository
-            )
+            log("Status: Archived (skipping)")
             data.archived = True
-            save_model(builds_file, data)
-            continue
+            data_path.write_text(data.model_dump_json(indent=2))
+            return
 
-        # Clone
-        clone_dir = work_dir / project_id
+        clone_dir = self.work / pid
+        home_dir = self.work / f"{pid}_home"
+        home_dir.mkdir(parents=True, exist_ok=True)
+
         try:
-            repo = Repo.clone_from(
-                config.repository,
-                clone_dir,
-                branch=config.branch,
-                depth=1,
-                single_branch=True,
-            )
-        except Exception as e:
-            err(f"Failed to clone {config.repository}: {e}")
-            data = load_project_builds(builds_file) or ProjectBuilds(
-                id=project_id, name=config.name, repository=config.repository
-            )
-            data.builds.insert(0, BuildEntry(
-                commit_message="Clone failed", build_status="failed", build_date=build_date
-            ))
-            save_model(builds_file, data)
-            continue
+            repo = Repo.clone_from(repo_url, clone_dir, branch=config.branch, depth=1, single_branch=True)
+            head = repo.head.commit
+            log(f"Commit: {head.hexsha[:7]} - {head.summary}")
 
-        # Commit info
-        head = repo.head.commit
-        commit_hash = head.hexsha
-        commit_short = repo.git.rev_parse(head.hexsha, short=True)
-        commit_message = head.summary
-        commit_date = head.authored_datetime.isoformat()
-        log(f"  Commit: {commit_short} — {commit_message}")
+            already_built = any(
+                b.commit_hash == head.hexsha and 
+                b.build_status == "success" and 
+                (self.staging / b.artifact_path).is_file() 
+                for b in data.builds
+            )
+            
+            if already_built:
+                log("Result: Already built, skipping.")
+                return
 
-        # Skip if already built AND artifact exists
-        existing = load_project_builds(builds_file)
-        if existing:
-            build_entry = next((b for b in existing.builds if b.commit_hash == commit_hash), None)
-            if build_entry and build_entry.build_status == "success":
-                artifact_file = staging_dir / build_entry.artifact_path
-                if artifact_file.is_file():
-                    log(f"  ⏭ Already built {commit_short} and artifact exists, skipping.")
-                    continue
+            # Docker Configuration
+            img = get_docker_image(config)
+            vols = {
+                clone_dir: "/workspace",
+                home_dir: "/home/builder"
+            }
+            envs = {
+                "HOME": "/home/builder"
+            }
+            
+            if config.setup.lower() == "java":
+                if os.getenv("USE_LOCAL_M2") == "true":
+                    m2 = Path.home() / ".m2"
                 else:
-                    log(f"  ⚠ Already built {commit_short} but artifact is missing, rebuilding...")
-
-        # Build
-        log(f"  Running: {config.build_command}")
-        build_ok = subprocess.run(config.build_command, cwd=clone_dir, shell=True).returncode == 0
-        build_status = "success" if build_ok else "failed"
-        if not build_ok:
-            err(f"Build failed for {config.name}")
-
-        # Collect artifact
-        artifact_name = ""
-        artifact_path = ""
-        if build_ok:
-            matches = glob.glob(str(clone_dir / config.artifact_pattern))
-            if not matches:
-                err(f"No artifacts matching: {config.artifact_pattern}")
-                build_status = "failed"
-            else:
-                src = Path(matches[0])
-                artifact_name = src.name
-                artifact_path = f"artifacts/{project_id}/{commit_hash}/{artifact_name}"
-                dest = staging_dir / "artifacts" / project_id / commit_hash
-                dest.mkdir(parents=True, exist_ok=True)
-                artifact_dest = dest / artifact_name
-                shutil.copy2(src, artifact_dest)
+                    m2 = self.cache / "m2"
                 
-                if artifact_dest.is_file():
-                    log(f"  ✓ Artifact collected: {artifact_name}")
+                m2.mkdir(parents=True, exist_ok=True)
+                vols[m2] = "/home/builder/.m2"
+                envs.update({
+                    "MAVEN_CONFIG": "/home/builder/.m2",
+                    "MAVEN_OPTS": "-Dmaven.repo.local=/home/builder/.m2/repository"
+                })
+                
+                gradle = self.cache / "gradle"
+                gradle.mkdir(parents=True, exist_ok=True)
+                vols[gradle] = "/home/builder/.gradle"
+            elif config.setup.lower() == "node":
+                npm = self.cache / "npm"
+                npm.mkdir(parents=True, exist_ok=True)
+                vols[npm] = "/home/builder/.npm"
+
+            log(f"Command: {config.build_command}")
+            
+            # Run via Docker SDK
+            container = self.docker.containers.run(
+                img,
+                command=["sh", "-c", config.build_command],
+                volumes={str(s.resolve()): {"bind": d, "mode": "rw"} for s, d in vols.items()},
+                environment=envs,
+                user=f"{os.getuid()}:{os.getgid()}",
+                working_dir="/workspace",
+                remove=True,
+                detach=True
+            )
+            
+            for line in container.logs(stream=True):
+                print(line.decode("utf-8"), end="", flush=True)
+            
+            res = container.wait()
+            ok = (res.get("StatusCode", 0) == 0)
+
+            art_name, art_path = "", ""
+            if ok:
+                matches = list(clone_dir.glob(config.artifact_pattern))
+                if matches:
+                    src = matches[0]
+                    art_name = src.name
+                    art_path = f"artifacts/{pid}/{head.hexsha}/{art_name}"
+                    dest = self.staging / "artifacts" / pid / head.hexsha
+                    dest.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src, dest / art_name)
+                    log(f"Output: {art_name}")
                 else:
-                    err(f"Failed to copy artifact to {artifact_dest}")
-                    build_status = "failed"
+                    err("No artifacts found.")
+                    ok = False
 
-        # Record build
-        data = existing or ProjectBuilds(
-            id=project_id, name=config.name, repository=config.repository
-        )
-        data.builds.insert(0, BuildEntry(
-            commit_hash=commit_hash,
-            commit_message=commit_message,
-            commit_date=commit_date,
-            artifact_name=artifact_name,
-            artifact_path=artifact_path,
-            build_status=build_status,
-            build_date=build_date,
-        ))
-        save_model(builds_file, data)
-        log(f"  ✓ Build recorded ({build_status})")
+            data.builds.insert(0, BuildEntry(
+                commit_hash=head.hexsha,
+                commit_message=head.summary,
+                commit_date=head.authored_datetime.isoformat(),
+                artifact_name=art_name,
+                artifact_path=art_path,
+                build_status="success" if ok else "failed",
+                build_date=now()
+            ))
+            data_path.write_text(data.model_dump_json(indent=2))
+            log(f"Result: {'SUCCESS' if ok else 'FAILED'}")
 
-    # Generate projects.json
-    projects: list[ProjectEntry] = []
-    for builds_file in sorted((staging_dir / "builds").glob("*.json")):
-        d = ProjectBuilds.model_validate_json(builds_file.read_text())
-        projects.append(ProjectEntry(id=d.id, name=d.name, repository=d.repository, archived=d.archived))
+        except Exception as e:
+            err(f"Build failed: {e}")
+            data.builds.insert(0, BuildEntry(
+                commit_message=f"Error: {str(e)[:50]}...",
+                build_status="failed",
+                build_date=now()
+            ))
+            data_path.write_text(data.model_dump_json(indent=2))
 
-    save_model(staging_dir / "projects.json", ProjectsIndex(last_updated=now_iso(), projects=projects))
-    log(f"Generated projects.json with {len(projects)} project(s)")
+    def finalize(self):
+        projects = []
+        for f in sorted((self.staging / "builds").glob("*.json")):
+            d = ProjectBuilds.model_validate_json(f.read_text())
+            projects.append(ProjectEntry(
+                id=d.id, name=d.name, repository=d.repository, archived=d.archived
+            ))
+        
+        index = ProjectsIndex(last_updated=now(), projects=projects)
+        (self.staging / "projects.json").write_text(index.model_dump_json(indent=2))
+        
+        log(f"Index: Generated with {len(projects)} projects.")
+        shutil.rmtree(self.work, ignore_errors=True)
 
-    # Cleanup
-    shutil.rmtree(work_dir, ignore_errors=True)
-    log("━" * 40)
-    log(f"Build complete. Staging directory: {staging_dir}")
-    log("━" * 40)
+def main():
+    token = os.getenv("GITHUB_TOKEN")
+    if token:
+        subprocess.run([
+            "git", "config", "--global", 
+            f"url.https://x-access-token:{token}@github.com/.insteadOf", 
+            "https://github.com/"
+        ], check=True)
 
+    root = Path(__file__).resolve().parent.parent
+    client = docker.from_env()
+    orc = Orchestrator(root, client)
+    log("Starting build orchestration (Docker isolation)...")
+    orc.setup()
+
+    paths = sorted((root / "projects").glob("*.json"))
+    configs = [
+        (ProjectConfig.model_validate_json(p.read_text()), p.stem) 
+        for p in paths
+    ]
+
+    # Pre-pull images
+    active_images = {
+        get_docker_image(c) 
+        for c, _ in configs 
+        if not c.archived
+    }
+    log(f"Pre-pulling {len(active_images)} Docker images...")
+    for img in sorted(active_images):
+        log(f"Pulling {img}...")
+        client.images.pull(img)
+
+    for config, pid in configs:
+        orc.run_build(pid, config)
+    
+    orc.finalize()
+    log("All tasks complete.")
 
 if __name__ == "__main__":
     main()

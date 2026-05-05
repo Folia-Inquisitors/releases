@@ -2,13 +2,21 @@
 
 Automated build and release management system for GitHub projects. This system builds projects (e.g., forks) via GitHub Actions and hosts a static website with the build history and artifact downloads.
 
+## System Requirements
+
+To run the build system locally or in CI, you need:
+
+- **Docker**: For isolated, reproducible builds.
+- **Python 3.12+**: With [`uv`](https://github.com/astral-sh/uv) installed for dependency management.
+- **Git**: For repository cloning and management.
+
 ## How it Works
 
 1.  **Project Definitions**: Projects are defined in the `projects/` directory as JSON files.
 2.  **Automated Builds**: A GitHub Action runs daily (or on push), scanning the `projects/` folder.
-3.  **Environment Detection**: The system automatically detects if a project needs Java or Node.js and sets up the environment accordingly.
+3.  **Docker Isolation**: Each project is built inside a dedicated Docker container (Maven or Node.js) to ensure maximum reproducibility and isolation.
 4.  **Persistent History**: Build metadata and artifacts are stored in the `gh-pages` branch, ensuring a full history is maintained.
-5.  **Release Website**: A clean, static dashboard (`index.html`) lazy-loads the build history and provides direct download links.
+5.  **Release Website**: A clean, structured dashboard (`index.html`) lazy-loads the build history and provides direct download links.
 
 ## Getting Started (Use this for your own projects)
 
