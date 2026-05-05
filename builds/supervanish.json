@@ -11,6 +11,15 @@
       "artifact_name": "",
       "artifact_path": "",
       "build_status": "failed",
+      "build_date": "2026-05-05T03:58:15Z"
+    },
+    {
+      "commit_hash": "50b3ae2d701393ffb2274d0b2f468f835148e799",
+      "commit_message": "fix MVdWPlaceholderAPI dependency",
+      "commit_date": "2026-05-05T09:46:14+07:00",
+      "artifact_name": "",
+      "artifact_path": "",
+      "build_status": "failed",
       "build_date": "2026-05-05T03:47:05Z"
     }
   ]
