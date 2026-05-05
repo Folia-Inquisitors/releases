@@ -44,7 +44,7 @@ def main():
                     f.write(f"{key}={value}\n")
     else:
         for key, value in outputs.items():
-            print(f"{key}={value}")
+            print(f"{key}={value}", flush=True)
 
 
 if __name__ == "__main__":

@@ -80,11 +80,11 @@ class ProjectsIndex(BaseModel):
 
 
 def log(msg: str) -> None:
-    print(f"[build] {msg}")
+    print(f"[build] {msg}", flush=True)
 
 
 def err(msg: str) -> None:
-    print(f"[build] ERROR: {msg}", file=sys.stderr)
+    print(f"[build] ERROR: {msg}", file=sys.stderr, flush=True)
 
 
 def now_iso() -> str:
