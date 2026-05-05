@@ -5,5 +5,5 @@
   "build_command": "mvn clean package -B",
   "artifact_pattern": "target/SuperVanish-*.jar",
   "setup": "java",
-  "java_version": "17"
+  "java_version": "21"
 }
