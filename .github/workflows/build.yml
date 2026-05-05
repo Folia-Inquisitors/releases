@@ -1,0 +1,60 @@
+name: Build Project Releases
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 06:00 UTC
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          path: main
+
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: main/gh-pages-existing
+        continue-on-error: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Detect required environments
+        id: detect
+        run: python3 main/scripts/detect_env.py main/projects
+
+      - name: Setup Java
+        if: steps.detect.outputs.needs_java == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.detect.outputs.java_version }}
+
+      - name: Setup Node.js
+        if: steps.detect.outputs.needs_node == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.detect.outputs.node_version }}
+
+      - name: Run build script
+        working-directory: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: uv run scripts/build.py
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: main/staging
+          publish_branch: gh-pages

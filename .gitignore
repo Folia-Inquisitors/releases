@@ -1,0 +1,21 @@
+# Build and staging directories
+staging/
+.work/
+gh-pages-existing/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.uv/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
