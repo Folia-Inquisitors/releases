@@ -1,10 +1,22 @@
 {
-  "last_updated": "2026-05-05T04:35:11Z",
+  "last_updated": "2026-05-05T04:47:31Z",
   "projects": [
     {
       "id": "morefoworld",
       "name": "MoreFoWorld",
       "repository": "https://github.com/Folia-Inquisitors/MoreFoWorld",
+      "archived": false
+    },
+    {
+      "id": "playerkits2",
+      "name": "PlayerKits2-Folia",
+      "repository": "https://github.com/Folia-Inquisitors/PlayerKits2-Folia",
+      "archived": false
+    },
+    {
+      "id": "puddlesplus",
+      "name": "PuddlesPlus",
+      "repository": "https://github.com/Folia-Inquisitors/PuddlesPlus",
       "archived": false
     },
     {

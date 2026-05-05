@@ -1,0 +1,17 @@
+{
+  "id": "puddlesplus",
+  "name": "PuddlesPlus",
+  "repository": "https://github.com/Folia-Inquisitors/PuddlesPlus",
+  "archived": false,
+  "builds": [
+    {
+      "commit_hash": "",
+      "commit_message": "Clone failed",
+      "commit_date": "",
+      "artifact_name": "",
+      "artifact_path": "",
+      "build_status": "failed",
+      "build_date": "2026-05-05T04:47:30Z"
+    }
+  ]
+}
