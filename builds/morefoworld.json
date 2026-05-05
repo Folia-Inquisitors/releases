@@ -5,6 +5,15 @@
   "archived": false,
   "builds": [
     {
+      "commit_hash": "0d3d2ccef5cac2b9ae5b37abf4b324bd5e765a60",
+      "commit_message": "update WorldUtil code for new version",
+      "commit_date": "2026-05-05T11:29:17+07:00",
+      "artifact_name": "MoreFoWorld-1.14.0-all.jar",
+      "artifact_path": "artifacts/morefoworld/0d3d2ccef5cac2b9ae5b37abf4b324bd5e765a60/MoreFoWorld-1.14.0-all.jar",
+      "build_status": "success",
+      "build_date": "2026-05-05T04:31:14Z"
+    },
+    {
       "commit_hash": "460e166a7bc99d0c53d65c580b93740472d6e87a",
       "commit_message": "update description and better explanation of the origin",
       "commit_date": "2026-04-23T00:56:13+07:00",
