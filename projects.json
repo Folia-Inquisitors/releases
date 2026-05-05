@@ -1,6 +1,12 @@
 {
-  "last_updated": "2026-05-05T04:01:21Z",
+  "last_updated": "2026-05-05T04:05:21Z",
   "projects": [
+    {
+      "id": "morefoworld",
+      "name": "MoreFoWorld",
+      "repository": "https://github.com/Folia-Inquisitors/MoreFoWorld",
+      "archived": false
+    },
     {
       "id": "supervanish",
       "name": "SuperVanish-Folia",
