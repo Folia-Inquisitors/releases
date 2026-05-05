@@ -2,7 +2,7 @@
   "name": "MoreFoWorld",
   "repository": "Folia-Inquisitors/MoreFoWorld",
   "branch": "master",
-  "build_command": "./gradlew build",
+  "build_command": "./gradlew build --info",
   "artifact_pattern": "build/libs/MoreFoWorld-*-all.jar",
   "setup": "java",
   "java_version": "25"
