@@ -5,6 +5,15 @@
   "archived": false,
   "builds": [
     {
+      "commit_hash": "92dd48f036beb778d7e596aba4e0d1e64a9e5e96",
+      "commit_message": "update README",
+      "commit_date": "2026-04-23T20:26:14+07:00",
+      "artifact_name": "PuddlesPlus-1.0-SNAPSHOT.jar",
+      "artifact_path": "artifacts/puddlesplus/92dd48f036beb778d7e596aba4e0d1e64a9e5e96/PuddlesPlus-1.0-SNAPSHOT.jar",
+      "build_status": "success",
+      "build_date": "2026-05-05T04:50:43Z"
+    },
+    {
       "commit_hash": "",
       "commit_message": "Clone failed",
       "commit_date": "",

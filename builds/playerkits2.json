@@ -5,6 +5,15 @@
   "archived": false,
   "builds": [
     {
+      "commit_hash": "2892b84a4a6458bde4d36f5f00bd67299f0b99f2",
+      "commit_message": "Merge remote-tracking branch 'upstream/main'",
+      "commit_date": "2025-11-18T17:06:13+07:00",
+      "artifact_name": "PlayerKits2-1.20.1.jar",
+      "artifact_path": "artifacts/playerkits2/2892b84a4a6458bde4d36f5f00bd67299f0b99f2/PlayerKits2-1.20.1.jar",
+      "build_status": "success",
+      "build_date": "2026-05-05T04:49:49Z"
+    },
+    {
       "commit_hash": "",
       "commit_message": "Clone failed",
       "commit_date": "",
