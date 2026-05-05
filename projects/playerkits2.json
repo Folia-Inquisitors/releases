@@ -1,7 +1,7 @@
 {
   "name": "PlayerKits2-Folia",
   "repository": "Folia-Inquisitors/PlayerKits2-Folia",
-  "branch": "master",
+  "branch": "main",
   "build_command": "mvn clean package -B",
   "artifact_pattern": "target/PlayerKits2-*.jar",
   "setup": "java",

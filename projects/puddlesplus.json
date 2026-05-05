@@ -1,7 +1,7 @@
 {
   "name": "PuddlesPlus",
   "repository": "Folia-Inquisitors/PuddlesPlus",
-  "branch": "master",
+  "branch": "main",
   "build_command": "mvn clean package -B",
   "artifact_pattern": "target/PuddlesPlus-*.jar",
   "setup": "java",
