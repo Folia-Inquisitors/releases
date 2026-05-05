@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Latest builds from our projects">
+  <title>Project Releases</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      max-width: 50rem;
+      margin: 0 auto;
+      padding: 1rem;
+      color: #24292f;
+    }
+
+    header {
+      border-bottom: 1px solid #d0d7de;
+      padding-bottom: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    header p {
+      color: #656d76;
+      font-size: 0.875rem;
+    }
+
+    header p:last-child {
+      margin-top: 0.25rem;
+      font-size: 0.75rem;
+    }
+
+    input[type="search"] {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+    }
+
+    article {
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      margin-bottom: 0.75rem;
+    }
+
+    article summary {
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    article summary:hover {
+      background: #f6f8fa;
+    }
+
+    article summary span {
+      font-weight: 600;
+    }
+
+    article summary a {
+      font-size: 0.75rem;
+      color: #0969da;
+      text-decoration: none;
+    }
+
+    article summary a:hover {
+      text-decoration: underline;
+    }
+
+    article table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+    }
+
+    article th,
+    article td {
+      padding: 0.5rem 1rem;
+      text-align: left;
+      border-top: 1px solid #d0d7de;
+    }
+
+    article th {
+      background: #f6f8fa;
+      font-weight: 600;
+      font-size: 0.75rem;
+      color: #656d76;
+    }
+
+    article td a {
+      color: #0969da;
+      text-decoration: none;
+    }
+
+    article td a:hover {
+      text-decoration: underline;
+    }
+
+    mark[data-status="success"] {
+      background: #dafbe1;
+      color: #1a7f37;
+      padding: 0.125rem 0.375rem;
+      border-radius: 3px;
+      font-size: 0.75rem;
+    }
+
+    mark[data-status="failed"] {
+      background: #ffebe9;
+      color: #cf222e;
+      padding: 0.125rem 0.375rem;
+      border-radius: 3px;
+      font-size: 0.75rem;
+    }
+
+    mark[data-status="archived"] {
+      background: #eaeef2;
+      color: #656d76;
+      padding: 0.125rem 0.375rem;
+      border-radius: 3px;
+      font-size: 0.75rem;
+    }
+
+    footer {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #d0d7de;
+      font-size: 0.75rem;
+      color: #656d76;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+      font-size: 0.8125rem;
+    }
+
+    noscript p {
+      padding: 1rem;
+      background: #fff8c5;
+      border: 1px solid #d4a72c;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Project Releases</h1>
+    <p>Latest builds from our projects</p>
+    <p>Last updated: <time id="last-updated">—</time></p>
+  </header>
+
+  <main>
+    <input type="search" placeholder="Search projects…" aria-label="Search projects">
+
+    <noscript>
+      <p>JavaScript is required to load the project data.</p>
+    </noscript>
+
+    <section aria-label="Project list">
+      <p>Loading…</p>
+    </section>
+  </main>
+
+  <footer>
+    <p>Powered by <a href="https://github.com">GitHub Actions</a></p>
+  </footer>
+
+  <!-- Templates -->
+
+  <template id="tmpl-project">
+    <article data-id="" data-name="">
+      <details>
+        <summary>
+          <span></span>
+          <mark data-status="archived" hidden>Archived</mark>
+          <a href="" target="_blank" rel="noopener">GitHub ↗</a>
+        </summary>
+        <div>
+          <p>Loading builds…</p>
+        </div>
+      </details>
+    </article>
+  </template>
+
+  <template id="tmpl-builds">
+    <table>
+      <thead>
+        <tr>
+          <th>Commit</th>
+          <th>Message</th>
+          <th>Artifact</th>
+          <th>Status</th>
+          <th>Built</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </template>
+
+  <template id="tmpl-build-row">
+    <tr>
+      <td><a href=""><code></code></a></td>
+      <td></td>
+      <td><a href="" download></a></td>
+      <td><mark data-status=""></mark></td>
+      <td><time datetime=""></time></td>
+    </tr>
+  </template>
+
+  <script>
+    const listEl = document.querySelector('section[aria-label="Project list"]');
+    const searchEl = document.querySelector('input[type="search"]');
+    const lastUpdatedEl = document.getElementById('last-updated');
+    const tmplProject = document.getElementById('tmpl-project');
+    const tmplBuilds = document.getElementById('tmpl-builds');
+    const tmplBuildRow = document.getElementById('tmpl-build-row');
+
+    async function fetchJSON(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Failed to load ${url}`);
+      return res.json();
+    }
+
+    function relativeTime(dateStr) {
+      if (!dateStr) return '—';
+      const diff = Date.now() - new Date(dateStr).getTime();
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+      if (days > 0) return `${days}d ago`;
+      if (hours > 0) return `${hours}h ago`;
+      if (minutes > 0) return `${minutes}m ago`;
+      return 'just now';
+    }
+
+    function createBuildsTable(builds, repository) {
+      if (!builds?.length) {
+        const p = document.createElement('p');
+        p.textContent = 'No builds yet.';
+        return p;
+      }
+
+      const repoUrl = repository.replace(/\.git$/, '');
+      const table = tmplBuilds.content.cloneNode(true);
+      const tbody = table.querySelector('tbody');
+
+      for (const b of builds) {
+        const row = tmplBuildRow.content.cloneNode(true);
+        const cells = row.querySelectorAll('td');
+
+        if (b.commit_hash) {
+          const link = cells[0].querySelector('a');
+          link.href = `${repoUrl}/commit/${b.commit_hash}`;
+          link.querySelector('code').textContent = b.commit_hash.substring(0, 7);
+        } else {
+          cells[0].textContent = '—';
+        }
+
+        cells[1].textContent = b.commit_message || '—';
+
+        if (b.artifact_path) {
+          const link = cells[2].querySelector('a');
+          link.href = b.artifact_path;
+          link.textContent = b.artifact_name;
+        } else {
+          cells[2].textContent = '—';
+        }
+
+        cells[3].querySelector('mark').dataset.status = b.build_status;
+        cells[3].querySelector('mark').textContent = b.build_status;
+
+        const time = cells[4].querySelector('time');
+        time.dateTime = b.build_date || '';
+        time.textContent = relativeTime(b.build_date);
+
+        tbody.appendChild(row);
+      }
+      return table;
+    }
+
+    function renderProjects(projects) {
+      listEl.textContent = '';
+      if (!projects?.length) {
+        listEl.textContent = 'No projects configured.';
+        return;
+      }
+
+      for (const project of projects) {
+        const repoUrl = project.repository.replace(/\.git$/, '');
+        const fragment = tmplProject.content.cloneNode(true);
+        const article = fragment.querySelector('article');
+
+        article.dataset.id = project.id;
+        article.dataset.name = project.name.toLowerCase();
+        article.querySelector('summary span').textContent = project.name;
+        article.querySelector('summary a').href = repoUrl;
+
+        if (project.archived) {
+          article.querySelector('mark[data-status="archived"]').hidden = false;
+        }
+
+        const contentDiv = article.querySelector('details div');
+        article.querySelector('details').addEventListener('toggle', async function () {
+          if (!this.open || contentDiv.dataset.loaded) return;
+          contentDiv.dataset.loaded = 'true';
+          try {
+            const data = await fetchJSON(`builds/${project.id}.json`);
+            contentDiv.textContent = '';
+            contentDiv.appendChild(createBuildsTable(data.builds, data.repository));
+          } catch {
+            contentDiv.textContent = 'Failed to load builds.';
+          }
+        });
+
+        listEl.appendChild(fragment);
+      }
+    }
+
+    searchEl.addEventListener('input', function () {
+      const query = this.value.toLowerCase();
+      listEl.querySelectorAll('article').forEach(el => {
+        el.style.display = el.dataset.name.includes(query) ? '' : 'none';
+      });
+    });
+
+    (async function () {
+      try {
+        const data = await fetchJSON('projects.json');
+        lastUpdatedEl.textContent = data.last_updated
+          ? new Date(data.last_updated).toLocaleString()
+          : '—';
+        lastUpdatedEl.setAttribute('datetime', data.last_updated || '');
+        renderProjects(data.projects);
+      } catch (e) {
+        listEl.textContent = `Failed to load data: ${e.message}`;
+      }
+    })();
+  </script>
+</body>
+</html>
