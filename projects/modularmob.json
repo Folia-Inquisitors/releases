@@ -1,0 +1,9 @@
+{
+  "name": "ModularMob",
+  "repository": "Folia-Inquisitors/ModularMob",
+  "branch": "main",
+  "build_command": "mvn clean package -B",
+  "artifact_pattern": "target/ModularMob-*.jar",
+  "setup": "java",
+  "java_version": "21"
+}
