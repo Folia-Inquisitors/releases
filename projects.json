@@ -1,6 +1,12 @@
 {
-  "last_updated": "2026-05-05T16:17:24Z",
+  "last_updated": "2026-05-06T10:08:18Z",
   "projects": [
+    {
+      "id": "modularmob",
+      "name": "ModularMob",
+      "repository": "https://github.com/Folia-Inquisitors/ModularMob",
+      "archived": false
+    },
     {
       "id": "morefoworld",
       "name": "MoreFoWorld",

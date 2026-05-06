@@ -1,0 +1,17 @@
+{
+  "id": "modularmob",
+  "name": "ModularMob",
+  "repository": "https://github.com/Folia-Inquisitors/ModularMob",
+  "archived": false,
+  "builds": [
+    {
+      "commit_hash": "",
+      "commit_message": "Error: Cmd('git') failed due to: exit code(128)\n  cmdline...",
+      "commit_date": "",
+      "artifact_name": "",
+      "artifact_path": "",
+      "build_status": "failed",
+      "build_date": "2026-05-06T10:08:16Z"
+    }
+  ]
+}
