@@ -15,14 +15,17 @@ on:
 
 permissions:
   contents: write
+  actions: write # per-project site snapshots via upload-artifact
 
 concurrency:
   group: releases-gh-pages
   cancel-in-progress: false
 
 jobs:
-  build-and-publish:
+  plan:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.pids.outputs.matrix }}
     steps:
       - name: Checkout main branch
         uses: actions/checkout@v7
@@ -30,17 +33,29 @@ jobs:
           path: main
           fetch-depth: 1
 
-      - name: Bootstrap site checkout (gh-pages branch)
+      - name: List projects
+        id: pids
+        run: python3 main/scripts/ci.py matrix --root main --output "$GITHUB_OUTPUT"
+
+  build:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        pid: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v7
+        with:
+          path: main
+          fetch-depth: 1
+
+      - name: Sparse site checkout (own project files only)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          SERVER="${{ github.server_url }}"
-          HOST="${SERVER#https://}"
-          HOST="${HOST#http://}"
-          git init site
-          git -C site remote add origin "https://x-access-token:${GITHUB_TOKEN}@${HOST}/${{ github.repository }}.git"
-          git -C site fetch --depth 1 origin gh-pages:gh-pages || true
-          git -C site checkout gh-pages || git -C site checkout --orphan gh-pages
+        run: python3 main/scripts/ci.py checkout --site-dir site --sparse ${{ matrix.pid }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -62,35 +77,49 @@ jobs:
         working-directory: main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: uv run scripts/build.py --site-dir $GITHUB_WORKSPACE/site 2>&1 | tee /tmp/build.log
+        run: uv run scripts/build.py --site-dir $GITHUB_WORKSPACE/site --only ${{ matrix.pid }}
+
+      - name: Upload site snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-${{ matrix.pid }}
+          path: site
+          retention-days: 1
+
+  publish:
+    needs: [plan, build]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v7
+        with:
+          path: main
+          fetch-depth: 1
+
+      - name: Bootstrap site checkout (gh-pages branch)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 main/scripts/ci.py checkout --site-dir site
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: "false"
+
+      - name: Download site snapshots
+        uses: actions/download-artifact@v4
+        with:
+          pattern: site-*
+          path: incoming
+
+      - name: Overlay per-project outputs
+        run: python3 main/scripts/ci.py overlay --site-dir site --incoming incoming --matrix '${{ needs.plan.outputs.matrix }}'
 
       - name: Commit and push site deltas
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MATRIX: ${{ needs.plan.outputs.matrix }}
         run: |
-          git -C site add -A
-          if git -C site diff --cached --quiet; then
-            echo "site: no changes, skipping push"
-            exit 0
-          fi
-          PLAN=$(grep -m1 'plan: build=' /tmp/build.log || true)
-          BUILT=$(echo "$PLAN" | sed -n 's/.*build=\[\([^]]*\)\].*/\1/p')
-          SKIPPED=$(echo "$PLAN" | sed -n 's/.*skip=\[\([^]]*\)\].*/\1/p')
-          [ -z "$BUILT" ] && BUILT="none"
-          [ -z "$SKIPPED" ] && SKIPPED="none"
-          DATE=$(date -u +%F)
-          git -C site -c user.name="github-actions[bot]" \
-            -c user.email="github-actions[bot]@users.noreply.github.com" \
-            commit -m "chore(releases): $DATE built=[$BUILT] skipped=[$SKIPPED]"
-          attempt=1
-          while [ "$attempt" -le 3 ]; do
-            if git -C site push origin gh-pages; then
-              break
-            fi
-            if [ "$attempt" -eq 3 ]; then
-              echo "site: push failed after 3 attempts" >&2
-              exit 1
-            fi
-            git -C site pull --rebase origin gh-pages
-            attempt=$((attempt + 1))
-          done
+          MSG=$(python3 main/scripts/ci.py message --site-dir site --matrix "$MATRIX")
+          python3 main/scripts/ci.py push --site-dir site --message "$MSG"

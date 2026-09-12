@@ -13,7 +13,7 @@ To run the build system locally or in CI, you need:
 ## How it Works
 
 1.  **Project Definitions**: Projects are defined in the `projects/` directory as JSON files.
-2.  **Automated Builds**: A GitHub Action runs daily (or on push), scanning the `projects/` folder.
+2.  **Automated Builds**: A GitHub Action runs daily (or on push), scanning the `projects/` folder. Each project builds in its own parallel job against a sparse checkout of its prior state; a single publish job then merges all outputs and pushes one atomic commit.
 3.  **Docker Isolation**: Each project is built inside a dedicated Docker container (Maven or Node.js) to ensure maximum reproducibility and isolation.
 4.  **Persistent History**: Build metadata and artifacts persist on the `gh-pages` branch via incremental commits — each run commits only changed files (`builds/*.json`, new `artifacts/**`, plus `projects.json`/`index.html` when actually changed), never a full-site re-upload.
 5.  **Release Website**: A clean, structured dashboard (`index.html`) lazy-loads the build history and provides direct download links. The site is branch-based Pages served from `gh-pages`; runs that find no newer upstream commits push nothing.

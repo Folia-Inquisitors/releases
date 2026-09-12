@@ -109,7 +109,7 @@ def get_docker_image(config: ProjectConfig) -> str:
 # --- Main Orchestrator ---
 
 class Orchestrator:
-    def __init__(self, root: Path, site: Path, docker_client: docker.DockerClient, keep_last: int = 0):
+    def __init__(self, root: Path, site: Path, docker_client: docker.DockerClient | None, keep_last: int = 0):
         self.root = root
         self.site = site
         self.work = root / ".work"
@@ -346,9 +346,17 @@ def main():
     ap.add_argument("--site-dir", default=str(root / "staging"))
     ap.add_argument("--only", action="append", default=[])
     ap.add_argument("--keep-last", type=int, default=0)
+    ap.add_argument("--finalize-only", action="store_true",
+                    help="regenerate index.html/projects.json without building (merge step)")
     args = ap.parse_args()
 
     site = Path(args.site_dir)
+    if args.finalize_only:
+        orc = Orchestrator(root, site, None, keep_last=args.keep_last)
+        orc.setup()
+        orc.finalize()
+        log("Finalize complete.")
+        return
     only = set(args.only or [])
     client = docker.from_env()
     orc = Orchestrator(root, site, client, keep_last=args.keep_last)
