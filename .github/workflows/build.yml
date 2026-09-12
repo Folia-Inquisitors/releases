@@ -58,7 +58,7 @@ jobs:
         run: python3 main/scripts/ci.py checkout --site-dir site --sparse ${{ matrix.pid }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: "false"
 
