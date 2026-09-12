@@ -1,7 +1,7 @@
 # Build and staging directories
 staging/
+site/
 .work/
-gh-pages-existing/
 .work_dir/
 .cache/
 

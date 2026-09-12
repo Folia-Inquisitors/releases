@@ -15,8 +15,8 @@ To run the build system locally or in CI, you need:
 1.  **Project Definitions**: Projects are defined in the `projects/` directory as JSON files.
 2.  **Automated Builds**: A GitHub Action runs daily (or on push), scanning the `projects/` folder.
 3.  **Docker Isolation**: Each project is built inside a dedicated Docker container (Maven or Node.js) to ensure maximum reproducibility and isolation.
-4.  **Persistent History**: Build metadata and artifacts are stored in the `gh-pages` branch, ensuring a full history is maintained.
-5.  **Release Website**: A clean, structured dashboard (`index.html`) lazy-loads the build history and provides direct download links.
+4.  **Persistent History**: Build metadata and artifacts persist on the `gh-pages` branch via incremental commits — each run commits only changed files (`builds/*.json`, new `artifacts/**`, plus `projects.json`/`index.html` when actually changed), never a full-site re-upload.
+5.  **Release Website**: A clean, structured dashboard (`index.html`) lazy-loads the build history and provides direct download links. The site is branch-based Pages served from `gh-pages`; runs that find no newer upstream commits push nothing.
 
 ## Getting Started (Use this for your own projects)
 
@@ -27,8 +27,8 @@ If you want to use this system for your own project releases:
 3.  **Configure Projects**: Delete the example files in `projects/` and add your own JSON configurations.
 4.  **Enable GitHub Pages**:
     *   Go to your repository **Settings** > **Pages**.
-    *   Set the source to **Deploy from a branch**.
-    *   Select the `gh-pages` branch (it will be created automatically after the first successful Action run).
+    *   Set the source to **Deploy from a branch**, branch `gh-pages`, folder `/ (root)`.
+    *   The `gh-pages` branch is created by the first workflow run, not by an Action deploy.
 5.  **Trigger the first build**: Go to **Actions**, select **Build Project Releases**, and click **Run workflow**.
 
 ## Adding a New Project
@@ -66,12 +66,18 @@ uv run scripts/build.py
 ```
 
 This will:
-1.  Prepare a `staging/` directory.
-2.  Clone and build all projects in `.work/`.
+1.  Prepare a `staging/` directory (the default `--site-dir`).
+2.  Clone and build all projects in `.work/` — skipping projects whose upstream branch has no newer commit than the last successful recorded build.
 3.  Collect artifacts into `staging/artifacts/`.
 4.  Generate `projects.json` and individual build metadata.
 
-To view the website locally, you can serve the `staging/` directory:
+For targeted runs, use `--site-dir` to pick the output directory and `--only <id>` (repeatable) to build a single project:
+
+```bash
+uv run scripts/build.py --site-dir /tmp/site --only my-project
+```
+
+To view the website locally, you can serve the output directory:
 
 ```bash
 cd staging && python3 -m http.server 8000

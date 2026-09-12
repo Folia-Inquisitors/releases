@@ -3,54 +3,94 @@ name: Build Project Releases
 on:
   push:
     branches: [main]
+    paths:
+      - "projects/**"
+      - "scripts/**"
+      - "index.html"
+      - "config.json"
+      - ".github/workflows/build.yml"
   workflow_dispatch:
   schedule:
     - cron: "0 6 * * *" # Daily at 06:00 UTC
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
+
+concurrency:
+  group: releases-gh-pages
+  cancel-in-progress: false
 
 jobs:
-  build:
+  build-and-publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main branch
         uses: actions/checkout@v7
         with:
           path: main
+          fetch-depth: 1
 
-      - name: Checkout gh-pages branch
-        uses: actions/checkout@v7
-        with:
-          ref: gh-pages
-          path: main/gh-pages-existing
-        continue-on-error: true
+      - name: Bootstrap site checkout (gh-pages branch)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SERVER="${{ github.server_url }}"
+          HOST="${SERVER#https://}"
+          HOST="${HOST#http://}"
+          git init site
+          git -C site remote add origin "https://x-access-token:${GITHUB_TOKEN}@${HOST}/${{ github.repository }}.git"
+          git -C site fetch --depth 1 origin gh-pages:gh-pages || true
+          git -C site checkout gh-pages || git -C site checkout --orphan gh-pages
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: "false"
 
+      - name: Restore dependency caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            main/.cache/m2
+            main/.cache/gradle
+            main/.cache/npm
+          key: deps-${{ runner.os }}-${{ hashFiles('main/projects/*.json') }}
+          restore-keys: |
+            deps-${{ runner.os }}-
+
       - name: Run build script
         working-directory: main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: uv run scripts/build.py
+        run: uv run scripts/build.py --site-dir $GITHUB_WORKSPACE/site 2>&1 | tee /tmp/build.log
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: main/staging
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+      - name: Commit and push site deltas
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git -C site add -A
+          if git -C site diff --cached --quiet; then
+            echo "site: no changes, skipping push"
+            exit 0
+          fi
+          PLAN=$(grep -m1 'plan: build=' /tmp/build.log || true)
+          BUILT=$(echo "$PLAN" | sed -n 's/.*build=\[\([^]]*\)\].*/\1/p')
+          SKIPPED=$(echo "$PLAN" | sed -n 's/.*skip=\[\([^]]*\)\].*/\1/p')
+          [ -z "$BUILT" ] && BUILT="none"
+          [ -z "$SKIPPED" ] && SKIPPED="none"
+          DATE=$(date -u +%F)
+          git -C site -c user.name="github-actions[bot]" \
+            -c user.email="github-actions[bot]@users.noreply.github.com" \
+            commit -m "chore(releases): $DATE built=[$BUILT] skipped=[$SKIPPED]"
+          attempt=1
+          while [ "$attempt" -le 3 ]; do
+            if git -C site push origin gh-pages; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "site: push failed after 3 attempts" >&2
+              exit 1
+            fi
+            git -C site pull --rebase origin gh-pages
+            attempt=$((attempt + 1))
+          done
