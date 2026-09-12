@@ -1,0 +1,17 @@
+{
+  "id": "puddlesplus",
+  "name": "PuddlesPlus",
+  "repository": "https://github.com/Folia-Inquisitors/PuddlesPlus",
+  "archived": false,
+  "builds": [
+    {
+      "commit_hash": "67391e1fe2e9c9b2b9c8c1904a8f68d098a07502",
+      "commit_message": "Add files via upload",
+      "commit_date": "2026-06-01T03:44:01-04:00",
+      "artifact_name": "PuddlesPlus-1.0-SNAPSHOT.jar",
+      "artifact_path": "artifacts/puddlesplus/67391e1fe2e9c9b2b9c8c1904a8f68d098a07502/PuddlesPlus-1.0-SNAPSHOT.jar",
+      "build_status": "success",
+      "build_date": "2026-09-12T10:35:14Z"
+    }
+  ]
+}

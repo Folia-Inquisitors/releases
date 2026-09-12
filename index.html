@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Project Releases</title>
+        <style>
+            :root {
+                --bg: #f6f8fa; --card: #fff; --text: #1f2328; --muted: #656d76;
+                --border: #d0d7de; --primary: #0969da; --success: #1a7f37;
+                --error: #cf222e; --radius: 8px; --shadow: 0 1px 3px rgba(31,35,40,0.05);
+            }
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --bg: #0d1117; --card: #161b22; --text: #c9d1d9; --muted: #8b949e;
+                    --border: #30363d; --primary: #2f81f7; --success: #3fb950; --error: #f85149;
+                    --shadow: 0 1px 3px rgba(0,0,0,0.3);
+                }
+            }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+                font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+                line-height: 1.5; background: var(--bg); color: var(--text);
+                max-width: 800px; margin: 0 auto; padding: 2rem 1rem;
+            }
+            header { margin-bottom: 2rem; }
+            h1 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.5px; }
+            p { color: var(--muted); font-size: 0.875rem; }
+            
+            input[type="search"] {
+                width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--border);
+                border-radius: var(--radius); background: var(--card); color: inherit;
+                margin-bottom: 1rem; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+            }
+            input[type="search"]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(9,105,218,0.1); }
+
+            .project-card {
+                background: var(--card); border: 1px solid var(--border);
+                border-radius: var(--radius); margin-bottom: 1rem; overflow: hidden;
+                box-shadow: var(--shadow);
+            }
+            summary {
+                padding: 1rem; cursor: pointer; display: flex; justify-content: space-between;
+                align-items: center; list-style: none; font-weight: 600; transition: background 0.2s;
+            }
+            summary::-webkit-details-marker { display: none; }
+            summary:hover { background: rgba(0,0,0,0.02); }
+            .project-content { padding: 1rem; border-top: 1px solid var(--border); background: rgba(0,0,0,0.01); }
+            
+            .build-grid { display: grid; gap: 0.75rem; }
+            .build-card {
+                background: var(--card); border: 1px solid var(--border);
+                border-radius: 6px; padding: 1rem; font-size: 0.875rem; transition: transform 0.1s;
+            }
+            .build-card:hover { border-color: var(--primary); }
+            .build-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem; gap: 0.5rem; }
+            .build-msg { font-weight: 600; overflow-wrap: anywhere; }
+            .build-meta { color: var(--muted); font-size: 0.75rem; display: flex; gap: 0.75rem; align-items: center; }
+            .build-actions { margin-top: 0.75rem; display: flex; gap: 0.5rem; }
+            
+            a { color: var(--primary); text-decoration: none; }
+            a:hover { text-decoration: underline; }
+            
+            .btn {
+                font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.75rem;
+                border: 1px solid var(--border); border-radius: 6px;
+                background: var(--bg); color: var(--text); cursor: pointer; transition: 0.2s;
+            }
+            .btn:hover { background: var(--border); }
+            .btn-primary { background: var(--text); color: var(--card); border: none; }
+            .btn-primary:hover { opacity: 0.9; }
+
+            .badge { font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 2em; border: 1px solid var(--border); color: var(--muted); font-weight: 500; }
+            .badge-success { color: var(--success); border-color: var(--success); background: rgba(26,127,55,0.05); }
+            .badge-error { color: var(--error); border-color: var(--error); background: rgba(207,34,46,0.05); }
+            
+            .state { padding: 2rem; text-align: center; color: var(--muted); font-size: 0.875rem; }
+            footer { margin-top: 3rem; text-align: center; padding: 2rem; border-top: 1px solid var(--border); font-size: 0.875rem; color: var(--muted); }
+            code { font-family: ui-monospace,SFMono-Regular,"SF Mono",monospace; font-size: 0.75rem; color: var(--primary); background: rgba(9,105,218,0.05); padding: 0.1rem 0.3rem; border-radius: 3px; }
+        </style>
+    </head>
+    <body>
+        <header>
+            <h1>Project Releases</h1>
+            <p>Latest builds &bull; <time id="updated">—</time></p>
+        </header>
+
+        <main>
+            <input type="search" id="search" placeholder="Filter projects..." aria-label="Search" />
+            <div id="list" aria-live="polite"><div class="state">Loading projects...</div></div>
+        </main>
+
+        <footer>
+            <p>Powered by <a href="https://github.com/features/actions">GitHub Actions</a> &bull; <span id="year"></span></p>
+        </footer>
+
+        <template id="tmpl-project">
+            <div class="project-card">
+                <details>
+                    <summary><span class="name"></span><span class="badge archived-tag" hidden>Archived</span></summary>
+                    <div class="project-content"></div>
+                </details>
+            </div>
+        </template>
+
+        <template id="tmpl-build">
+            <div class="build-card">
+                <div class="build-header"><span class="build-msg"></span><span class="badge status-tag"></span></div>
+                <div class="build-meta"><time></time><code></code></div>
+                <div class="build-actions">
+                    <a href="" class="btn btn-primary dl-link">Download</a>
+                    <a href="" class="btn commit-link">Commit</a>
+                </div>
+            </div>
+        </template>
+
+        <script>
+            const $ = (s) => document.querySelector(s);
+            const getTmpl = (id) => $(id).content.cloneNode(true);
+            const fetchJSON = (url) => fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
+
+            const formatTime = (s) => {
+                if (!s) return "—";
+                const diff = (Date.now() - new Date(s)) / 1000;
+                if (diff < 60) return "just now";
+                if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+                if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+                return new Date(s).toLocaleDateString();
+            };
+
+            const showState = (con, msg) => {
+                con.innerHTML = `<div class="state">${msg}</div>`;
+            };
+
+            const loadBuilds = async (p, con) => {
+                if (con.dataset.loaded) return;
+                showState(con, "Loading builds...");
+
+                const data = await fetchJSON(`builds/${p.id}.json`);
+                if (!data || !data.builds.length) return showState(con, "No builds available.");
+
+                const grid = document.createElement("div");
+                grid.className = "build-grid";
+                
+                data.builds.forEach(b => {
+                    const t = getTmpl("#tmpl-build");
+                    t.querySelector(".build-msg").textContent = b.commit_message || "Build";
+                    t.querySelector("time").textContent = formatTime(b.build_date);
+                    t.querySelector("code").textContent = (b.commit_hash || "").slice(0, 7);
+                    
+                    const status = t.querySelector(".status-tag");
+                    status.textContent = b.build_status;
+                    status.classList.add(b.build_status === "success" ? "badge-success" : "badge-error");
+
+                    const dl = t.querySelector(".dl-link");
+                    if (b.build_status === "success" && b.artifact_path) {
+                        dl.href = b.artifact_path;
+                        dl.textContent = `Download ${b.artifact_name || "Artifact"}`;
+                    } else dl.remove();
+
+                    const commit = t.querySelector(".commit-link");
+                    if (b.commit_hash) commit.href = `${data.repository.replace(/\.git$/, "")}/commit/${b.commit_hash}`;
+                    else commit.remove();
+
+                    grid.appendChild(t);
+                });
+
+                con.replaceChildren(grid);
+                con.dataset.loaded = true;
+            };
+
+            const init = async () => {
+                $("#year").textContent = new Date().getFullYear();
+                $("#search").oninput = (e) => {
+                    const q = e.target.value.toLowerCase();
+                    document.querySelectorAll(".project-card").forEach(el => {
+                        el.style.display = el.dataset.name.includes(q) ? "" : "none";
+                    });
+                };
+
+                const data = await fetchJSON("projects.json");
+                if (!data) return showState($("#list"), "Failed to load projects.");
+
+                $("#updated").textContent = formatTime(data.last_updated);
+                const frag = document.createDocumentFragment();
+
+                data.projects.forEach(p => {
+                    const t = getTmpl("#tmpl-project");
+                    const card = t.querySelector(".project-card");
+                    card.dataset.name = p.name.toLowerCase();
+                    t.querySelector(".name").textContent = p.name;
+                    if (p.archived) t.querySelector(".archived-tag").hidden = false;
+
+                    const det = t.querySelector("details");
+                    const con = det.querySelector(".project-content");
+                    det.ontoggle = () => det.open && loadBuilds(p, con);
+                    frag.appendChild(t);
+                });
+
+                $("#list").replaceChildren(frag);
+            };
+
+            init();
+        </script>
+    </body>
+</html>

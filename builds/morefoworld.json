@@ -1,0 +1,17 @@
+{
+  "id": "morefoworld",
+  "name": "MoreFoWorld",
+  "repository": "https://github.com/Folia-Inquisitors/MoreFoWorld",
+  "archived": false,
+  "builds": [
+    {
+      "commit_hash": "b0a9186db0638727bed98ae8e8b4dae63d7046e9",
+      "commit_message": "release",
+      "commit_date": "2026-08-04T23:59:06+07:00",
+      "artifact_name": "MoreFoWorld-1.16.0-all.jar",
+      "artifact_path": "artifacts/morefoworld/b0a9186db0638727bed98ae8e8b4dae63d7046e9/MoreFoWorld-1.16.0-all.jar",
+      "build_status": "success",
+      "build_date": "2026-09-12T10:33:58Z"
+    }
+  ]
+}

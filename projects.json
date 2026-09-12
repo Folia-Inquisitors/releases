@@ -1,0 +1,35 @@
+{
+  "last_updated": "2026-09-12T10:36:04Z",
+  "projects": [
+    {
+      "id": "modularmob",
+      "name": "ModularMob",
+      "repository": "https://github.com/Folia-Inquisitors/ModularMob",
+      "archived": false
+    },
+    {
+      "id": "morefoworld",
+      "name": "MoreFoWorld",
+      "repository": "https://github.com/Folia-Inquisitors/MoreFoWorld",
+      "archived": false
+    },
+    {
+      "id": "playerkits2",
+      "name": "PlayerKits2-Folia",
+      "repository": "https://github.com/Folia-Inquisitors/PlayerKits2-Folia",
+      "archived": false
+    },
+    {
+      "id": "puddlesplus",
+      "name": "PuddlesPlus",
+      "repository": "https://github.com/Folia-Inquisitors/PuddlesPlus",
+      "archived": false
+    },
+    {
+      "id": "supervanish",
+      "name": "SuperVanish-Folia",
+      "repository": "https://github.com/Folia-Inquisitors/SuperVanish-Folia",
+      "archived": false
+    }
+  ]
+}

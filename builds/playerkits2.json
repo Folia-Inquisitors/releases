@@ -1,0 +1,17 @@
+{
+  "id": "playerkits2",
+  "name": "PlayerKits2-Folia",
+  "repository": "https://github.com/Folia-Inquisitors/PlayerKits2-Folia",
+  "archived": false,
+  "builds": [
+    {
+      "commit_hash": "a573cc89e6eb78c6d23aaac0a209fd4d4306b6cb",
+      "commit_message": "Merge remote-tracking branch 'upstream/main'",
+      "commit_date": "2026-09-12T17:17:53+07:00",
+      "artifact_name": "PlayerKits2-1.23.3.jar",
+      "artifact_path": "artifacts/playerkits2/a573cc89e6eb78c6d23aaac0a209fd4d4306b6cb/PlayerKits2-1.23.3.jar",
+      "build_status": "success",
+      "build_date": "2026-09-12T10:34:49Z"
+    }
+  ]
+}

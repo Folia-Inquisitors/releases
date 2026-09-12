@@ -1,0 +1,17 @@
+{
+  "id": "modularmob",
+  "name": "ModularMob",
+  "repository": "https://github.com/Folia-Inquisitors/ModularMob",
+  "archived": false,
+  "builds": [
+    {
+      "commit_hash": "14ea22439f09e701f53b9f42648b31b236269913",
+      "commit_message": "update dependencies",
+      "commit_date": "2026-05-06T17:05:14+07:00",
+      "artifact_name": "ModularMob-1.0-SNAPSHOT.jar",
+      "artifact_path": "artifacts/modularmob/14ea22439f09e701f53b9f42648b31b236269913/ModularMob-1.0-SNAPSHOT.jar",
+      "build_status": "success",
+      "build_date": "2026-09-12T10:31:40Z"
+    }
+  ]
+}

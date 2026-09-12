@@ -1,0 +1,17 @@
+{
+  "id": "supervanish",
+  "name": "SuperVanish-Folia",
+  "repository": "https://github.com/Folia-Inquisitors/SuperVanish-Folia",
+  "archived": false,
+  "builds": [
+    {
+      "commit_hash": "eb74ea546fc6e3477d773aa3924899ef136fb276",
+      "commit_message": "Update README.md",
+      "commit_date": "2026-05-29T03:36:09-04:00",
+      "artifact_name": "SuperVanish-6.3.0.jar",
+      "artifact_path": "artifacts/supervanish/eb74ea546fc6e3477d773aa3924899ef136fb276/SuperVanish-6.3.0.jar",
+      "build_status": "success",
+      "build_date": "2026-09-12T10:36:04Z"
+    }
+  ]
+}
