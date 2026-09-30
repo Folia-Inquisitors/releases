@@ -17,6 +17,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -255,7 +256,7 @@ def build_discord_embed(pid: str, data: dict, base_url: str) -> dict | None:
     artifact_path = latest.get("artifact_path", "")
     build_date = latest.get("build_date") or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    site_url = f"{base_url}/" if base_url else repo_url
+    site_url = f"{base_url}/#{pid}" if base_url else repo_url
     embed = {
         "title": f"New Build: {name}",
         "url": site_url,
@@ -353,20 +354,23 @@ def cmd_notify(args: argparse.Namespace) -> int:
         "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
     )
 
-    # Discord allows max 10 embeds per message
+    # Send each build as an individual message so Discord displays each build card cleanly
     success = True
-    for i in range(0, len(embeds), 10):
-        chunk = embeds[i:i + 10]
+    for embed in embeds:
         payload = {
             "username": username,
             "avatar_url": avatar_url,
-            "embeds": chunk,
+            "embeds": [embed],
         }
-        log(f"sending Discord notification for {len(chunk)} build(s)...")
+        title = embed.get("title", "build")
+        log(f"sending Discord notification for {title}...")
         if not send_discord_webhook(webhook_url, payload):
             success = False
+        if len(embeds) > 1:
+            time.sleep(0.5)
 
     return 0 if success else 1
+
 
 
 def main() -> int:
