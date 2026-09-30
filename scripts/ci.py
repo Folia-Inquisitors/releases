@@ -140,9 +140,15 @@ def cmd_message(args: argparse.Namespace) -> int:
 
 def cmd_push(args: argparse.Namespace) -> int:
     site = Path(args.site_dir)
+    built = changed_pids(site)
+    if not built:
+        log("site: no changes, skipping push")
+        (site / ".new_builds").unlink(missing_ok=True)
+        return 0
     git(site, "add", "-A")
     if git(site, "diff", "--cached", "--quiet", check=False).returncode == 0:
         log("site: no changes, skipping push")
+        (site / ".new_builds").unlink(missing_ok=True)
         return 0
     git(site, "-c", "user.name=github-actions[bot]",
         "-c", "user.email=github-actions[bot]@users.noreply.github.com",
@@ -150,6 +156,7 @@ def cmd_push(args: argparse.Namespace) -> int:
     for attempt in (1, 2, 3):
         if git(site, "push", "origin", "gh-pages", check=False).returncode == 0:
             log("pushed")
+            Path(site, ".new_builds").write_text(",".join(sorted(built)))
             return 0
         if attempt == 3:
             print("site: push failed after 3 attempts", file=sys.stderr, flush=True)
@@ -187,28 +194,23 @@ def get_site_base_url(root: Path) -> str:
 
 
 def get_recently_built_pids(site: Path) -> set[str]:
-    # 1. Uncommitted changes (e.g. before push or in testing)
+    # 1. Read marker written by cmd_push in the current run
+    marker = site / ".new_builds"
+    if marker.is_file():
+        try:
+            content = marker.read_text().strip()
+            marker.unlink(missing_ok=True)
+            if content:
+                return set(p.strip() for p in content.split(",") if p.strip())
+        except Exception:
+            pass
+
+    # 2. Check uncommitted changes (e.g. before push or in testing)
     uncommitted = changed_pids(site)
     if uncommitted:
         return uncommitted
 
-    # 2. Check the most recent commit on gh-pages
-    has_head = git(site, "rev-parse", "--verify", "--quiet", "HEAD", check=False)
-    if has_head.returncode != 0:
-        return set()
-
-    has_parent = git(site, "rev-parse", "--verify", "--quiet", "HEAD~1", check=False)
-    if has_parent.returncode == 0:
-        out = git(site, "diff", "--name-only", "HEAD~1", "HEAD", check=False).stdout
-    else:
-        out = git(site, "ls-tree", "-r", "--name-only", "HEAD", check=False).stdout
-
-    built = set()
-    for line in out.splitlines():
-        line = line.strip()
-        if line.startswith("builds/") and line.endswith(".json"):
-            built.add(line[len("builds/"):-len(".json")])
-    return built
+    return set()
 
 
 def send_discord_webhook(webhook_url: str, payload: dict) -> bool:
@@ -240,8 +242,11 @@ def build_discord_embed(pid: str, data: dict, base_url: str) -> dict | None:
         return None
 
     latest = builds[0]
-    status = latest.get("build_status", "success")
-    is_success = (status == "success")
+    status = latest.get("build_status", "")
+    if status != "success":
+        # Only notify when there is actually a successful new build
+        return None
+
     name = data.get("name", pid)
     repo_url = data.get("repository", "")
     commit_hash = latest.get("commit_hash", "")
@@ -254,7 +259,7 @@ def build_discord_embed(pid: str, data: dict, base_url: str) -> dict | None:
     embed = {
         "title": f"New Build: {name}",
         "url": site_url,
-        "color": 0x2EB886 if is_success else 0xCF222E,
+        "color": 0x2EB886,
         "fields": [],
         "footer": {
             "text": "Project Releases",
@@ -274,7 +279,7 @@ def build_discord_embed(pid: str, data: dict, base_url: str) -> dict | None:
             "inline": False,
         })
 
-    if is_success and artifact_name:
+    if artifact_name:
         if base_url and artifact_path:
             art_url = f"{base_url}/{artifact_path}"
             art_val = f"[`{artifact_name}`]({art_url})"
@@ -288,22 +293,24 @@ def build_discord_embed(pid: str, data: dict, base_url: str) -> dict | None:
 
     embed["fields"].append({
         "name": "Status",
-        "value": "✅ Success" if is_success else "❌ Failed",
+        "value": "✅ Success",
         "inline": True,
     })
 
     return embed
 
 
+
 def cmd_notify(args: argparse.Namespace) -> int:
     webhook_url = (
-        os.environ.get("DISCORD_WEBHOOK")
+        os.environ.get("DISCORD_URL")
+        or os.environ.get("DISCORD_WEBHOOK")
         or os.environ.get("DISCORD_WEBHOOK_URL")
         or ""
     ).strip()
 
     if not webhook_url:
-        log("DISCORD_WEBHOOK not set, skipping notification")
+        log("DISCORD_URL not set, skipping notification")
         return 0
 
     site = Path(args.site_dir)

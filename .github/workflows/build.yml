@@ -127,5 +127,7 @@ jobs:
       - name: Send Discord notification
         if: success()
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_URL }}
+          DISCORD_URL: ${{ secrets.DISCORD_URL }}
         run: python3 main/scripts/ci.py notify --site-dir site --root main
+
+
