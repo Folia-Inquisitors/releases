@@ -220,10 +220,6 @@ def cmd_message(args: argparse.Namespace) -> int:
 def cmd_push(args: argparse.Namespace) -> int:
     site = Path(args.site_dir)
     built = changed_pids(site)
-    if not built:
-        log("site: no changes, skipping push")
-        (site / ".new_builds").unlink(missing_ok=True)
-        return 0
     git(site, "add", "-A")
     if git(site, "diff", "--cached", "--quiet", check=False).returncode == 0:
         log("site: no changes, skipping push")
@@ -235,13 +231,17 @@ def cmd_push(args: argparse.Namespace) -> int:
     for attempt in (1, 2, 3):
         if git(site, "push", "origin", "gh-pages", check=False).returncode == 0:
             log("pushed")
-            Path(site, ".new_builds").write_text(",".join(sorted(built)))
+            if built:
+                Path(site, ".new_builds").write_text(",".join(sorted(built)))
+            else:
+                (site / ".new_builds").unlink(missing_ok=True)
             return 0
         if attempt == 3:
             print("site: push failed after 3 attempts", file=sys.stderr, flush=True)
             return 1
         git(site, "pull", "--rebase", "origin", "gh-pages")
     return 1
+
 
 
 def get_site_base_url(root: Path) -> str:
