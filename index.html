@@ -39,6 +39,10 @@
                 border-radius: var(--radius); margin-bottom: 1rem; overflow: hidden;
                 box-shadow: var(--shadow);
             }
+            .project-card:target {
+                border-color: var(--primary);
+                box-shadow: 0 0 0 3px rgba(9,105,218,0.2);
+            }
             summary {
                 padding: 1rem; cursor: pointer; display: flex; justify-content: space-between;
                 align-items: center; list-style: none; font-weight: 600; transition: background 0.2s;
@@ -187,6 +191,8 @@
                 data.projects.forEach(p => {
                     const t = getTmpl("#tmpl-project");
                     const card = t.querySelector(".project-card");
+                    card.id = p.id;
+                    card.dataset.id = p.id.toLowerCase();
                     card.dataset.name = p.name.toLowerCase();
                     t.querySelector(".name").textContent = p.name;
                     if (p.archived) t.querySelector(".archived-tag").hidden = false;
@@ -198,9 +204,31 @@
                 });
 
                 $("#list").replaceChildren(frag);
+
+                const handleHash = () => {
+                    const hash = window.location.hash.replace(/^#/, "").toLowerCase();
+                    if (!hash) return;
+                    const card = document.getElementById(hash) || document.querySelector(`.project-card[data-id="${hash}"]`);
+                    if (card) {
+                        const det = card.querySelector("details");
+                        if (det) {
+                            det.open = true;
+                            const con = det.querySelector(".project-content");
+                            const p = data.projects.find(x => x.id.toLowerCase() === hash);
+                            if (p && con) {
+                                loadBuilds(p, con);
+                            }
+                        }
+                        card.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }
+                };
+
+                handleHash();
+                window.addEventListener("hashchange", handleHash);
             };
 
             init();
         </script>
     </body>
 </html>
+
