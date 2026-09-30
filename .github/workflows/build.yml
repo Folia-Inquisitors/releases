@@ -123,3 +123,9 @@ jobs:
         run: |
           MSG=$(python3 main/scripts/ci.py message --site-dir site --matrix "$MATRIX")
           python3 main/scripts/ci.py push --site-dir site --message "$MSG"
+
+      - name: Send Discord notification
+        if: success()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_URL }}
+        run: python3 main/scripts/ci.py notify --site-dir site --root main

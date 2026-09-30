@@ -30,6 +30,7 @@ If you want to use this system for your own project releases:
     *   Set the source to **Deploy from a branch**, branch `gh-pages`, folder `/ (root)`.
     *   The `gh-pages` branch is created by the first workflow run, not by an Action deploy.
 5.  **Trigger the first build**: Go to **Actions**, select **Build Project Releases**, and click **Run workflow**.
+6.  **Optional - Discord Notifications**: Add a repository secret `DISCORD_WEBHOOK` (or `DISCORD_WEBHOOK_URL`) with your webhook URL. Whenever a new build is completed and published, a rich embed with the commit details and artifact download link will be posted to Discord.
 
 ## Adding a New Project
 

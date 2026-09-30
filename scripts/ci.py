@@ -7,6 +7,7 @@ Subcommands (each maps to one workflow step):
   overlay   merge per-project snapshots into the publish checkout
   message   derive the publish commit message from working-tree status
   push      commit site deltas (no-op when clean) and push with retry
+  notify    send notification for newly built projects via Discord Webhook
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ import os
 import shutil
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -111,7 +114,7 @@ def cmd_overlay(args: argparse.Namespace) -> int:
 
 
 def changed_pids(site: Path) -> set[str]:
-    out = git(site, "status", "--porcelain").stdout
+    out = git(site, "status", "--porcelain", "-uall").stdout
     built = set()
     for line in out.splitlines():
         parts = line.split()
@@ -155,6 +158,210 @@ def cmd_push(args: argparse.Namespace) -> int:
     return 1
 
 
+def get_site_base_url(root: Path) -> str:
+    override = os.environ.get("SITE_URL") or os.environ.get("PAGES_URL")
+    if override:
+        return override.rstrip("/")
+
+    cfg_file = root / "config.json"
+    if cfg_file.is_file():
+        try:
+            cfg = json.loads(cfg_file.read_text())
+            org = cfg.get("org")
+            repo = cfg.get("repo")
+            if org and repo:
+                if repo.lower() == f"{org.lower()}.github.io":
+                    return f"https://{org}.github.io"
+                return f"https://{org}.github.io/{repo}"
+        except Exception as e:
+            log(f"warning: failed to parse config.json for base url: {e}")
+
+    gh_repo = os.environ.get("GITHUB_REPOSITORY")
+    if gh_repo and "/" in gh_repo:
+        org, repo = gh_repo.split("/", 1)
+        if repo.lower() == f"{org.lower()}.github.io":
+            return f"https://{org}.github.io"
+        return f"https://{org}.github.io/{repo}"
+
+    return ""
+
+
+def get_recently_built_pids(site: Path) -> set[str]:
+    # 1. Uncommitted changes (e.g. before push or in testing)
+    uncommitted = changed_pids(site)
+    if uncommitted:
+        return uncommitted
+
+    # 2. Check the most recent commit on gh-pages
+    has_head = git(site, "rev-parse", "--verify", "--quiet", "HEAD", check=False)
+    if has_head.returncode != 0:
+        return set()
+
+    has_parent = git(site, "rev-parse", "--verify", "--quiet", "HEAD~1", check=False)
+    if has_parent.returncode == 0:
+        out = git(site, "diff", "--name-only", "HEAD~1", "HEAD", check=False).stdout
+    else:
+        out = git(site, "ls-tree", "-r", "--name-only", "HEAD", check=False).stdout
+
+    built = set()
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith("builds/") and line.endswith(".json"):
+            built.add(line[len("builds/"):-len(".json")])
+    return built
+
+
+def send_discord_webhook(webhook_url: str, payload: dict) -> bool:
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        webhook_url,
+        data=data,
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "GitHub-Actions-Releases-Notifier/1.0",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return 200 <= resp.status < 300
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8", errors="replace")
+        log(f"Discord webhook failed (HTTP {e.code}): {err_body}")
+        return False
+    except Exception as e:
+        log(f"Discord webhook error: {e}")
+        return False
+
+
+def build_discord_embed(pid: str, data: dict, base_url: str) -> dict | None:
+    builds = data.get("builds") or []
+    if not builds:
+        return None
+
+    latest = builds[0]
+    status = latest.get("build_status", "success")
+    is_success = (status == "success")
+    name = data.get("name", pid)
+    repo_url = data.get("repository", "")
+    commit_hash = latest.get("commit_hash", "")
+    commit_msg = latest.get("commit_message", "")
+    artifact_name = latest.get("artifact_name", "")
+    artifact_path = latest.get("artifact_path", "")
+    build_date = latest.get("build_date") or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    site_url = f"{base_url}/" if base_url else repo_url
+    embed = {
+        "title": f"New Build: {name}",
+        "url": site_url,
+        "color": 0x2EB886 if is_success else 0xCF222E,
+        "fields": [],
+        "footer": {
+            "text": "Project Releases",
+        },
+        "timestamp": build_date,
+    }
+
+    if commit_hash:
+        short_sha = commit_hash[:7]
+        commit_url = f"{repo_url.rstrip('/')}/commit/{commit_hash}" if repo_url else ""
+        commit_ref = f"[`{short_sha}`]({commit_url})" if commit_url else f"`{short_sha}`"
+        msg_summary = commit_msg.splitlines()[0] if commit_msg else "No commit message"
+        commit_value = f"{commit_ref} {msg_summary}"
+        embed["fields"].append({
+            "name": "Commit",
+            "value": commit_value[:1024],
+            "inline": False,
+        })
+
+    if is_success and artifact_name:
+        if base_url and artifact_path:
+            art_url = f"{base_url}/{artifact_path}"
+            art_val = f"[`{artifact_name}`]({art_url})"
+        else:
+            art_val = f"`{artifact_name}`"
+        embed["fields"].append({
+            "name": "Artifact",
+            "value": art_val,
+            "inline": True,
+        })
+
+    embed["fields"].append({
+        "name": "Status",
+        "value": "✅ Success" if is_success else "❌ Failed",
+        "inline": True,
+    })
+
+    return embed
+
+
+def cmd_notify(args: argparse.Namespace) -> int:
+    webhook_url = (
+        os.environ.get("DISCORD_WEBHOOK")
+        or os.environ.get("DISCORD_WEBHOOK_URL")
+        or ""
+    ).strip()
+
+    if not webhook_url:
+        log("DISCORD_WEBHOOK not set, skipping notification")
+        return 0
+
+    site = Path(args.site_dir)
+    root = Path(args.root)
+
+    if args.pids:
+        pids = set(p.strip() for p in args.pids.split(",") if p.strip())
+    else:
+        pids = get_recently_built_pids(site)
+
+    if not pids:
+        log("notify: no newly built projects to notify")
+        return 0
+
+    base_url = get_site_base_url(root)
+    embeds = []
+
+    for pid in sorted(pids):
+        data_file = site / "builds" / f"{pid}.json"
+        if not data_file.is_file():
+            log(f"notify: skipping {pid}, {data_file} not found")
+            continue
+        try:
+            data = json.loads(data_file.read_text())
+        except Exception as e:
+            log(f"notify: failed to parse {data_file}: {e}")
+            continue
+
+        embed = build_discord_embed(pid, data, base_url)
+        if embed:
+            embeds.append(embed)
+
+    if not embeds:
+        log("notify: no valid build data found for notification")
+        return 0
+
+    username = os.environ.get("DISCORD_USERNAME", "GitHub Releases")
+    avatar_url = os.environ.get(
+        "DISCORD_AVATAR_URL",
+        "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+    )
+
+    # Discord allows max 10 embeds per message
+    success = True
+    for i in range(0, len(embeds), 10):
+        chunk = embeds[i:i + 10]
+        payload = {
+            "username": username,
+            "avatar_url": avatar_url,
+            "embeds": chunk,
+        }
+        log(f"sending Discord notification for {len(chunk)} build(s)...")
+        if not send_discord_webhook(webhook_url, payload):
+            success = False
+
+    return 0 if success else 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="CI helpers for the releases workflow")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -180,10 +387,16 @@ def main() -> int:
     p.add_argument("--site-dir", required=True)
     p.add_argument("--message", required=True)
 
+    n = sub.add_parser("notify", help="send notification for newly built projects via Discord Webhook")
+    n.add_argument("--site-dir", required=True)
+    n.add_argument("--root", default=".")
+    n.add_argument("--pids", default=None, help="comma-separated list of project IDs")
+
     args = ap.parse_args()
     return {"matrix": cmd_matrix, "checkout": cmd_checkout, "overlay": cmd_overlay,
-            "message": cmd_message, "push": cmd_push}[args.cmd](args)
+            "message": cmd_message, "push": cmd_push, "notify": cmd_notify}[args.cmd](args)
 
 
 if __name__ == "__main__":
     sys.exit(main())
+
