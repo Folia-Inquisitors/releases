@@ -114,7 +114,7 @@ jobs:
           path: incoming
 
       - name: Overlay per-project outputs
-        run: python3 main/scripts/ci.py overlay --site-dir site --incoming incoming --matrix '${{ needs.plan.outputs.matrix }}'
+        run: python3 main/scripts/ci.py overlay --site-dir site --incoming incoming --matrix '${{ needs.plan.outputs.matrix }}' --root main
 
       - name: Commit and push site deltas
         env:

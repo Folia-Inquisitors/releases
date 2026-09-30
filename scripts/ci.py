@@ -87,9 +87,84 @@ def cmd_checkout(args: argparse.Namespace) -> int:
     return 0
 
 
+def update_site_files(root: Path, site: Path):
+    # 1. .nojekyll
+    nojekyll = site / ".nojekyll"
+    if not nojekyll.exists():
+        nojekyll.write_text("")
+
+    # 2. index.html
+    src_idx = root / "index.html"
+    if src_idx.is_file():
+        dest_idx = site / "index.html"
+        data = src_idx.read_bytes()
+        if not dest_idx.exists() or dest_idx.read_bytes() != data:
+            dest_idx.write_bytes(data)
+            log("updated index.html")
+
+    # 3. projects.json
+    projects = []
+    projects_dir = root / "projects"
+    for f in sorted((site / "builds").glob("*.json")):
+        proj_cfg_file = projects_dir / f.name
+        if not proj_cfg_file.exists():
+            continue  # removed project: keep files, drop from index
+        try:
+            d = json.loads(f.read_text())
+        except Exception as e:
+            log(f"warning: skipping unparsable {f}: {e}")
+            continue
+
+        projects.append({
+            "id": d.get("id", f.stem),
+            "name": d.get("name", f.stem),
+            "repository": d.get("repository", ""),
+            "archived": d.get("archived", False),
+        })
+
+    # Include any projects from projects/ that don't yet have builds recorded
+    if projects_dir.is_dir():
+        for pf in sorted(projects_dir.glob("*.json")):
+            if not any(p["id"] == pf.stem for p in projects):
+                try:
+                    pcfg = json.loads(pf.read_text())
+                    repo = pcfg.get("repository", "")
+                    if repo and not repo.startswith(("http", "git@")):
+                        repo = f"https://github.com/{repo}"
+                    projects.append({
+                        "id": pf.stem,
+                        "name": pcfg.get("name", pf.stem),
+                        "repository": repo,
+                        "archived": pcfg.get("archived", False),
+                    })
+                except Exception:
+                    pass
+
+    projects.sort(key=lambda p: p["name"].lower())
+
+    out = site / "projects.json"
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    if out.exists():
+        try:
+            old = json.loads(out.read_text())
+            if old.get("projects") == projects:
+                log(f"Index: Unchanged with {len(projects)} projects.")
+                return
+        except Exception:
+            pass
+
+    index_data = {
+        "last_updated": now_iso,
+        "projects": projects,
+    }
+    out.write_text(json.dumps(index_data, indent=2))
+    log(f"Index: Generated with {len(projects)} projects.")
+
+
 def cmd_overlay(args: argparse.Namespace) -> int:
     site = Path(args.site_dir)
     incoming = Path(args.incoming_dir)
+    root = Path(getattr(args, "root", "."))
     matrix = json.loads(args.matrix)
     for pid in matrix:
         src = incoming / f"site-{pid}"
@@ -111,7 +186,10 @@ def cmd_overlay(args: argparse.Namespace) -> int:
                     shutil.rmtree(existing, ignore_errors=True)
                     log(f"pruned artifacts/{pid}/{existing.name}")
         log(f"overlaid {pid}")
+
+    update_site_files(root, site)
     return 0
+
 
 
 def changed_pids(site: Path) -> set[str]:
@@ -389,6 +467,7 @@ def main() -> int:
     o.add_argument("--site-dir", required=True)
     o.add_argument("--incoming-dir", required=True)
     o.add_argument("--matrix", required=True, help="JSON pid list from plan job")
+    o.add_argument("--root", default=".")
 
     g = sub.add_parser("message", help="print publish commit message")
     g.add_argument("--site-dir", required=True)
