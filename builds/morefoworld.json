@@ -5,6 +5,15 @@
   "archived": false,
   "builds": [
     {
+      "commit_hash": "9e8e9bea3062ba5ea0c75b28fd7a4c8e86673d3d",
+      "commit_message": "back to official Folia",
+      "commit_date": "2026-11-26T21:41:52+07:00",
+      "artifact_name": "MoreFoWorld-1.17.0-all.jar",
+      "artifact_path": "artifacts/morefoworld/9e8e9bea3062ba5ea0c75b28fd7a4c8e86673d3d/MoreFoWorld-1.17.0-all.jar",
+      "build_status": "success",
+      "build_date": "2026-11-26T16:09:17Z"
+    },
+    {
       "commit_hash": "e9267e1c3835ccebd9c640935b53d46d309f7cd8",
       "commit_message": "release",
       "commit_date": "2026-10-15T17:03:19+07:00",
